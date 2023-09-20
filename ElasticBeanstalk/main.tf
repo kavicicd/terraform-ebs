@@ -226,7 +226,7 @@ resource "aws_elastic_beanstalk_environment" "example" {
   setting {
     namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
     name      = "SSLCertificateArns"
-    value     = "arn:aws:acm:ap-south-1:446641888254:certificate/YOUR_CERTIFICATE_ARN"
+    value     = "arn:aws:acm:us-east-1:715304697930:certificate/arn:aws:acm:us-east-1:715304697930:certificate/b30eaad7-794d-4d2f-8d5e-63100fc4622f"
     # Replace YOUR_REGION, YOUR_ACCOUNT_ID, and YOUR_CERTIFICATE_ARN with your own values
   }
   setting {
