@@ -40,7 +40,6 @@ resource "aws_subnet" "public_subnets" {
   cidr_block              = var.public_subnet_cidrs[count.index]
   availability_zone       = element(data.aws_availability_zones.available.names, count.index)
   map_public_ip_on_launch = true
-  description = "ebs-public-subnet"
 }
 
 # Create private subnets
@@ -49,19 +48,16 @@ resource "aws_subnet" "private_subnets" {
   vpc_id            = aws_vpc.custom_vpc.id
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = element(data.aws_availability_zones.available.names, count.index)
-  description = "ebs-private-subnet"
 }
 
 # Create an Internet Gateway and associate it with the VPC
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.custom_vpc.id
-  description = "ebs-internetgateway"
 }
 
 # Create a route table for public subnets and associate it with the Internet Gateway
 resource "aws_route_table" "public_route_table" {
   vpc_id = aws_vpc.custom_vpc.id
-  description = "ebs-rt-public"
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -74,7 +70,6 @@ resource "aws_route_table_association" "public_subnet_association" {
   count          = length(var.public_subnet_cidrs)
   subnet_id      = aws_subnet.public_subnets[count.index].id
   route_table_id = aws_route_table.public_route_table.id
-  description = "ebs-public-subnet-rt"
 }
 
 # Create an Elastic IP for the NAT Gateway
@@ -106,7 +101,6 @@ resource "aws_security_group" "eb_security_group" {
 resource "aws_nat_gateway" "nat_gateway" {
   allocation_id = aws_eip.nat_eip.id
   subnet_id     = aws_subnet.public_subnets[0].id # Use one of your public subnets
-  description = "ebs-NATGateway"
 }
 
 # Data source to fetch availability zones in the selected region
