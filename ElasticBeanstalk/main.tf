@@ -209,26 +209,29 @@ resource "aws_elastic_beanstalk_environment" "example" {
     value     = "enhanced"
   }
   setting {
-    namespace = "aws:elasticbeanstalk:environment:process:default"
+    namespace = "aws:elasticbeanstalk:environment"
     name      = "DefaultProcess"
     value     = "default,HTTPS"
   }
+
   setting {
     namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
     name      = "ListenerProtocol"
     value     = "HTTPS"
   }
+
   setting {
     namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
     name      = "ListenerPort"
     value     = "443"
   }
+
   setting {
     namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
     name      = "SSLCertificateArns"
     value     = "arn:aws:acm:us-east-1:715304697930:certificate/b30eaad7-794d-4d2f-8d5e-63100fc4622f"
-    # Replace YOUR_REGION, YOUR_ACCOUNT_ID, and YOUR_CERTIFICATE_ARN with your own values
   }
+
   setting {
     namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
     name      = "SSLPolicy"
