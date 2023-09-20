@@ -209,7 +209,6 @@ resource "aws_elastic_beanstalk_environment" "example" {
     value     = "enhanced"
   }
   setting {
-    namespace = "aws:elasticbeanstalk:environment"
     name      = "DefaultProcess"
     value     = "default,HTTPS"
   }
