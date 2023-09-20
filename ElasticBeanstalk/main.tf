@@ -116,7 +116,7 @@ resource "aws_s3_bucket" "elasticbeanstalk_bucket" {
 resource "aws_s3_bucket_object" "code_upload" {
   bucket       = aws_s3_bucket.elasticbeanstalk_bucket.id
   key          = "swf.zip"
-  source       = "D:\SWF_Project\swf.zip"
+  source       = "D:\\SWF_Project\\swf.zip"
   content_type = "application/zip"
 }
 
