@@ -31,7 +31,6 @@ variable "private_subnet_cidrs" {
 # Create a custom VPC
 resource "aws_vpc" "custom_vpc" {
   cidr_block = var.vpc_cidr
-  description = "ebs-vpc"
 }
 
 # Create public subnets
@@ -79,9 +78,7 @@ resource "aws_route_table_association" "public_subnet_association" {
 }
 
 # Create an Elastic IP for the NAT Gateway
-resource "aws_eip" "nat_eip" {
-  description = "ebs-elasticip-ng"
-}
+resource "aws_eip" "nat_eip" {}
 
 # Create a security group for Elastic Beanstalk instances (customize as needed)
 resource "aws_security_group" "eb_security_group" {
