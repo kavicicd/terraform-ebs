@@ -30,13 +30,11 @@ variable "private_subnet_cidrs" {
 
 # Create a custom VPC
 resource "aws_vpc" "custom_vpc" {
-  name       = "ebs-tf-vpc"
   cidr_block = var.vpc_cidr
 }
 
 # Create public subnets
 resource "aws_subnet" "public_subnets" {
-  name                    = "ebs-tf-public_subnet"
   count                   = length(var.public_subnet_cidrs)
   vpc_id                  = aws_vpc.custom_vpc.id
   cidr_block              = var.public_subnet_cidrs[count.index]
@@ -46,7 +44,6 @@ resource "aws_subnet" "public_subnets" {
 
 # Create private subnets
 resource "aws_subnet" "private_subnets" {
-  name              = "ebs-tf-private_subnet"
   count             = length(var.private_subnet_cidrs)
   vpc_id            = aws_vpc.custom_vpc.id
   cidr_block        = var.private_subnet_cidrs[count.index]
@@ -55,13 +52,11 @@ resource "aws_subnet" "private_subnets" {
 
 # Create an Internet Gateway and associate it with the VPC
 resource "aws_internet_gateway" "igw" {
-  name   = "ebs-tf-IG"
   vpc_id = aws_vpc.custom_vpc.id
 }
 
 # Create a route table for public subnets and associate it with the Internet Gateway
 resource "aws_route_table" "public_route_table" {
-  name   = "ebs-tf-rt"
   vpc_id = aws_vpc.custom_vpc.id
 
   route {
@@ -104,7 +99,6 @@ resource "aws_security_group" "eb_security_group" {
 
 # Create a NAT Gateway in a public subnet and associate the Elastic IP
 resource "aws_nat_gateway" "nat_gateway" {
-  name          = "ebs-tf-NG"
   allocation_id = aws_eip.nat_eip.id
   subnet_id     = aws_subnet.public_subnets[0].id # Use one of your public subnets
 }
