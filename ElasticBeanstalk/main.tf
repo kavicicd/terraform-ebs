@@ -1,15 +1,15 @@
 # Define your AWS provider configuration
 provider "aws" {
-  region = "ap-south-1" # Update with your desired AWS region
+  region = "us-east-1" # Update with your desired AWS region
 }
 
 # Variables
 variable "elasticapp" {
-  default = "YourElasticBeanstalkApp"
+  default = "TerraformElasticBeanstalkApp"
 }
 
 variable "beanstalkappenv" {
-  default = "YourElasticBeanstalkEnv"
+  default = "terraformElasticBeanstalkEnv"
 }
 
 variable "tier" {
@@ -30,11 +30,13 @@ variable "private_subnet_cidrs" {
 
 # Create a custom VPC
 resource "aws_vpc" "custom_vpc" {
+  name       = "ebs-tf-vpc"
   cidr_block = var.vpc_cidr
 }
 
 # Create public subnets
 resource "aws_subnet" "public_subnets" {
+  name                    = "ebs-tf-public_subnet"
   count                   = length(var.public_subnet_cidrs)
   vpc_id                  = aws_vpc.custom_vpc.id
   cidr_block              = var.public_subnet_cidrs[count.index]
@@ -44,6 +46,7 @@ resource "aws_subnet" "public_subnets" {
 
 # Create private subnets
 resource "aws_subnet" "private_subnets" {
+  name              = "ebs-tf-private_subnet"
   count             = length(var.private_subnet_cidrs)
   vpc_id            = aws_vpc.custom_vpc.id
   cidr_block        = var.private_subnet_cidrs[count.index]
@@ -52,11 +55,13 @@ resource "aws_subnet" "private_subnets" {
 
 # Create an Internet Gateway and associate it with the VPC
 resource "aws_internet_gateway" "igw" {
+  name   = "ebs-tf-IG"
   vpc_id = aws_vpc.custom_vpc.id
 }
 
 # Create a route table for public subnets and associate it with the Internet Gateway
 resource "aws_route_table" "public_route_table" {
+  name   = "ebs-tf-rt"
   vpc_id = aws_vpc.custom_vpc.id
 
   route {
@@ -77,7 +82,7 @@ resource "aws_eip" "nat_eip" {}
 
 # Create a security group for Elastic Beanstalk instances (customize as needed)
 resource "aws_security_group" "eb_security_group" {
-  name        = "eb_security_group"
+  name        = "ebs_security_group"
   description = "Security group for Elastic Beanstalk instances"
 
   # Define your security group rules here
@@ -99,6 +104,7 @@ resource "aws_security_group" "eb_security_group" {
 
 # Create a NAT Gateway in a public subnet and associate the Elastic IP
 resource "aws_nat_gateway" "nat_gateway" {
+  name          = "ebs-tf-NG"
   allocation_id = aws_eip.nat_eip.id
   subnet_id     = aws_subnet.public_subnets[0].id # Use one of your public subnets
 }
@@ -118,6 +124,7 @@ resource "aws_s3_bucket_object" "code_upload" {
   key          = "swf.zip"
   source       = "D:\\SWF_Project\\swf.zip"
   content_type = "application/zip"
+
 }
 
 # Create an Elastic Beanstalk application
@@ -133,6 +140,7 @@ resource "aws_elastic_beanstalk_application_version" "example" {
   description = "Your .NET Core Application Version"
   bucket      = aws_s3_bucket.elasticbeanstalk_bucket.id
   key         = aws_s3_bucket_object.code_upload.key
+
 }
 
 # Create an Elastic Beanstalk environment
@@ -168,7 +176,7 @@ resource "aws_elastic_beanstalk_environment" "example" {
   }
 
   setting {
-    namespace = "aws:elasticbeanstalk:environment:process:default"
+    namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
     name      = "MatcherHTTPCode"
     value     = "200"
   }
@@ -177,6 +185,52 @@ resource "aws_elastic_beanstalk_environment" "example" {
     namespace = "aws:elasticbeanstalk:environment"
     name      = "LoadBalancerType"
     value     = "application"
+  }
+
+  # Add the HTTPS listener and SSL certificate configuration
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "Protocol"
+    value     = "HTTPS"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "SSLCertificateArns"
+    value     = "arn:aws:acm:us-east-1:715304697930:certificate/b30eaad7-794d-4d2f-8d5e-63100fc4622f" # Replace with your SSL certificate ARN
+  }
+
+  # Add the SSL policy
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "SSLPolicy"
+    value     = "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+  }
+
+  # Set Load Balancer network settings
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "ELBScheme"
+    value     = "internet-facing" # Set to "internet-facing" for public, "internal" for internal
+  }
+
+  # Configure processes
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
+    name      = "Port"
+    value     = "443"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
+    name      = "Protocol"
+    value     = "HTTPS"
   }
 
   setting {
@@ -209,27 +263,4 @@ resource "aws_elastic_beanstalk_environment" "example" {
     value     = "enhanced"
   }
 
-  setting {
-    namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
-    name      = "ListenerProtocol"
-    value     = "HTTPS"
-  }
-
-  setting {
-    namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
-    name      = "ListenerPort"
-    value     = "443"
-  }
-
-  setting {
-    namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
-    name      = "SSLCertificateArns"
-    value     = "arn:aws:acm:us-east-1:715304697930:certificate/b30eaad7-794d-4d2f-8d5e-63100fc4622f"
-  }
-
-  setting {
-    namespace = "aws:elasticbeanstalk:environment:process:HTTPS"
-    name      = "SSLPolicy"
-    value     = "ELBSecurityPolicy-2016-08"
-  }
 }
