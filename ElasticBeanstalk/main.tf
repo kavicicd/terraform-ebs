@@ -1,110 +1,138 @@
-# Define your AWS provider configuration
 provider "aws" {
-  region = "us-east-1" # Update with your desired AWS region
+  region = "us-east-1" # Change to your desired region
 }
 
-# Variables
-variable "elasticapp" {
-  default = "TerraformElasticBeanstalkApp"
-}
-
-variable "beanstalkappenv" {
-  default = "terraformElasticBeanstalkEnv"
-}
-
-variable "tier" {
-  default = "WebServer"
-}
-
-variable "vpc_cidr" {
-  default = "10.0.0.0/16" # Update with your desired VPC CIDR block
-}
-
-variable "public_subnet_cidrs" {
-  default = ["10.0.1.0/24", "10.0.2.0/24"] # Update with your desired public subnet CIDR blocks
-}
-
-variable "private_subnet_cidrs" {
-  default = ["10.0.3.0/24", "10.0.4.0/24"] # Update with your desired private subnet CIDR blocks
-}
-
-# Create a custom VPC
-resource "aws_vpc" "custom_vpc" {
-  cidr_block = var.vpc_cidr
-}
-
-# Create public subnets
-resource "aws_subnet" "public_subnets" {
-  count                   = length(var.public_subnet_cidrs)
-  vpc_id                  = aws_vpc.custom_vpc.id
-  cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = element(data.aws_availability_zones.available.names, count.index)
-  map_public_ip_on_launch = true
-}
-
-# Create private subnets
-resource "aws_subnet" "private_subnets" {
-  count             = length(var.private_subnet_cidrs)
-  vpc_id            = aws_vpc.custom_vpc.id
-  cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = element(data.aws_availability_zones.available.names, count.index)
-}
-
-# Create an Internet Gateway and associate it with the VPC
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.custom_vpc.id
-}
-
-# Create a route table for public subnets and associate it with the Internet Gateway
-resource "aws_route_table" "public_route_table" {
-  vpc_id = aws_vpc.custom_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
+# Create a VPC with a name tag
+resource "aws_vpc" "my_vpc" {
+  cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "MyVPC"
   }
 }
 
-# Associate public subnets with the public route table
-resource "aws_route_table_association" "public_subnet_association" {
-  count          = length(var.public_subnet_cidrs)
-  subnet_id      = aws_subnet.public_subnets[count.index].id
+# Create two availability zones
+data "aws_availability_zones" "available" {}
+
+# Create public and private subnets
+resource "aws_subnet" "public_subnet" {
+  count                   = 2
+  vpc_id                  = aws_vpc.my_vpc.id
+  cidr_block              = "10.0.${count.index}.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "PublicSubnet-${count.index + 1}"
+  }
+}
+
+resource "aws_subnet" "private_subnet" {
+  count             = 2
+  vpc_id            = aws_vpc.my_vpc.id
+  cidr_block        = "10.0.${count.index + 10}.0/24"
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+  tags = {
+    Name = "PrivateSubnet-${count.index + 1}"
+  }
+}
+
+# Create an internet gateway with a name tag
+resource "aws_internet_gateway" "my_igw" {
+  vpc_id = aws_vpc.my_vpc.id
+  tags = {
+    Name = "MyInternetGateway"
+  }
+}
+
+# Create a NAT gateway with an Elastic IP
+resource "aws_eip" "my_eip" {
+  instance = null
+}
+
+resource "aws_nat_gateway" "my_nat_gateway" {
+  allocation_id = aws_eip.my_eip.id
+  subnet_id     = aws_subnet.public_subnet[0].id
+}
+
+# Create a public route table for public subnets with Internet Gateway
+resource "aws_route_table" "public_route_table" {
+  vpc_id = aws_vpc.my_vpc.id
+  tags = {
+    Name = "PublicRouteTable"
+  }
+}
+resource "aws_route_table" "private_route_table" {
+  vpc_id = aws_vpc.my_vpc.id
+  tags = {
+    Name = "PrivateRouteTable"
+  }
+}
+
+# Create route entries for public route table (Internet Gateway)
+resource "aws_route" "public_route" {
+  route_table_id         = aws_route_table.public_route_table.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.my_igw.id
+}
+
+# Create route entries for private route table with NAT Gateway
+resource "aws_route" "private_route" {
+  route_table_id         = aws_route_table.private_route_table.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.my_nat_gateway.id
+}
+
+# Set the public route table as the main route table for the VPC
+resource "aws_main_route_table_association" "public_main_route_table_association" {
+  vpc_id         = aws_vpc.my_vpc.id
   route_table_id = aws_route_table.public_route_table.id
 }
 
-# Create an Elastic IP for the NAT Gateway
-resource "aws_eip" "nat_eip" {}
+# Explicit subnet associations for public route table
+resource "aws_route_table_association" "public_subnet_association" {
+  count          = 2
+  subnet_id      = aws_subnet.public_subnet[count.index].id
+  route_table_id = aws_route_table.public_route_table.id
+}
 
-# Create a security group for Elastic Beanstalk instances (customize as needed)
+# Explicit subnet associations for private route table
+resource "aws_route_table_association" "private_subnet_association" {
+  count          = 2
+  subnet_id      = aws_subnet.private_subnet[count.index].id
+  route_table_id = aws_route_table.private_route_table.id
+}
+
+
+# Create Elastic Beanstalk application, version, and environment (as previously defined)
+
+# Create a security group for Elastic Beanstalk
 resource "aws_security_group" "eb_security_group" {
-  name        = "ebs_security_group"
-  description = "Security group for Elastic Beanstalk instances"
+  name_prefix = "eb_security_group_"
+  description = "Elastic Beanstalk Security Group"
 
-  # Define your security group rules here
-  # For example, allow HTTP and SSH traffic:
+  # Define your security group rules here, e.g., for incoming traffic
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   ingress {
-    from_port   = 22
-    to_port     = 22
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
+  egress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Allow outbound traffic to the internet
+  }
 
-# Create a NAT Gateway in a public subnet and associate the Elastic IP
-resource "aws_nat_gateway" "nat_gateway" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.public_subnets[0].id # Use one of your public subnets
-}
+  # Add more rules as needed for your application
 
-# Data source to fetch availability zones in the selected region
-data "aws_availability_zones" "available" {}
+  vpc_id = aws_vpc.my_vpc.id
+}
 
 # Create an S3 bucket to store your application code
 resource "aws_s3_bucket" "elasticbeanstalk_bucket" {
@@ -118,7 +146,6 @@ resource "aws_s3_bucket_object" "code_upload" {
   key          = "swf.zip"
   source       = "D:\\SWF_Project\\swf.zip"
   content_type = "application/zip"
-
 }
 
 # Create an Elastic Beanstalk application
@@ -134,10 +161,9 @@ resource "aws_elastic_beanstalk_application_version" "example" {
   description = "Your .NET Core Application Version"
   bucket      = aws_s3_bucket.elasticbeanstalk_bucket.id
   key         = aws_s3_bucket_object.code_upload.key
-
 }
 
-# Create an Elastic Beanstalk environment
+# Update the Elastic Beanstalk environment to use the security group and public route table
 resource "aws_elastic_beanstalk_environment" "example" {
   name                   = "dotnet-core-ebs-tf"
   application            = aws_elastic_beanstalk_application.example.name
@@ -146,27 +172,25 @@ resource "aws_elastic_beanstalk_environment" "example" {
   version_label          = aws_elastic_beanstalk_application_version.example.name
 
   setting {
-    namespace = "aws:ec2:vpc"
-    name      = "VPCId"
-    value     = aws_vpc.custom_vpc.id
-  }
-
-  setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
     value     = "aws-elasticbeanstalk-ec2-role"
   }
-
   setting {
     namespace = "aws:ec2:vpc"
     name      = "AssociatePublicIpAddress"
-    value     = "True"
+    value     = "false"
   }
-
+  # Configure subnets for the Elastic Beanstalk environment
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "ELBSubnets"
+    value     = join(",", [aws_subnet.public_subnet[0].id, aws_subnet.public_subnet[1].id])
+  }
   setting {
     namespace = "aws:ec2:vpc"
     name      = "Subnets"
-    value     = join(",", aws_subnet.public_subnets[*].id)
+    value     = join(",", [aws_subnet.private_subnet[0].id, aws_subnet.private_subnet[1].id])
   }
 
   setting {
@@ -179,6 +203,13 @@ resource "aws_elastic_beanstalk_environment" "example" {
     namespace = "aws:elasticbeanstalk:environment"
     name      = "LoadBalancerType"
     value     = "application"
+  }
+
+  # Assign the security group for Elastic Beanstalk to restrict access
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "SecurityGroups"
+    value     = aws_security_group.eb_security_group.id
   }
 
   # Add the HTTPS listener and SSL certificate configuration
@@ -256,5 +287,4 @@ resource "aws_elastic_beanstalk_environment" "example" {
     name      = "SystemType"
     value     = "enhanced"
   }
-
 }
