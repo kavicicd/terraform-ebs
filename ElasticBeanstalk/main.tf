@@ -136,15 +136,15 @@ resource "aws_security_group" "eb_security_group" {
 
 # Create an S3 bucket to store your application code
 resource "aws_s3_bucket" "elasticbeanstalk_bucket" {
-  bucket = "beanstalk-tf-bucket"
+  bucket = "beanstalk-tf-bucket" # add your bucket name 
   acl    = "private"
 }
 
 # Upload your application code to the S3 bucket
 resource "aws_s3_bucket_object" "code_upload" {
   bucket       = aws_s3_bucket.elasticbeanstalk_bucket.id
-  key          = "swf.zip"
-  source       = "D:\\SWF_Project\\swf.zip"
+  key          = "ebs.zip" #add filename in zip format
+  source       = "D:\\elasticbeanstalk_Project\\ebs.zip"  #add path to your local 
   content_type = "application/zip"
 }
 
@@ -167,7 +167,7 @@ resource "aws_elastic_beanstalk_application_version" "example" {
 resource "aws_elastic_beanstalk_environment" "example" {
   name                   = "dotnet-core-ebs-tf"
   application            = aws_elastic_beanstalk_application.example.name
-  solution_stack_name    = "64bit Amazon Linux 2 v2.5.7 running .NET Core"
+  solution_stack_name    = "64bit Amazon Linux 2 v2.5.7 running .NET Core" #select the solution name shown in your region
   wait_for_ready_timeout = "15m"
   version_label          = aws_elastic_beanstalk_application_version.example.name
 
@@ -228,7 +228,7 @@ resource "aws_elastic_beanstalk_environment" "example" {
   setting {
     namespace = "aws:elbv2:listener:443"
     name      = "SSLCertificateArns"
-    value     = "arn:aws:acm:us-east-1:715304697930:certificate/b30eaad7-794d-4d2f-8d5e-63100fc4622f" # Replace with your SSL certificate ARN
+    value     = "arn:aws:acm:us-east-1:515304497950:certificate/b30eaad8-784d-4f2f-7d5e-6323424342f" # Replace with your SSL certificate ARN
   }
 
   # Add the SSL policy
